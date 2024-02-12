@@ -1,0 +1,27 @@
+# [[file:extxyz.note::e345323a][e345323a]]
+[package]
+name = "extxyz"
+version = "0.0.1"
+edition = "2021"
+authors = ["Wenping Guo <ybyygu@gmail.com>"]
+description = "A parser for extxyz format"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/gchemol/extxyz"
+repository = "https://github.com/gchemol/extxyz"
+
+[dependencies]
+winnow = "0.5.39"
+
+[dev-dependencies]
+criterion = "0.4"
+
+# workspace independent
+[workspace]
+
+[features]
+# for adhoc hacking
+adhoc = []
+
+# [patch.crates-io]
+# gchemol-gut = { path = "/home/ybyygu/Workspace/Programming/gchemol-rs/gut" }
+# e345323a ends here
