@@ -10,7 +10,7 @@ mod parser;
 // [[file:../extxyz.note::1a12bd10][1a12bd10]]
 #[test]
 fn test_extxyz() {
-    let s = r#"Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3 Time=0.0"#;
+    let s = r#"Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3 Time=0.0 good =a"#;
     let parts = shlex::split(s);
     dbg!(parts);
 
