@@ -11,6 +11,7 @@ repository = "https://github.com/gchemol/extxyz"
 
 [dependencies]
 winnow = "0.5.39"
+shlex = "1"
 
 [dev-dependencies]
 criterion = "0.4"
