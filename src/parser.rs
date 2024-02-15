@@ -64,9 +64,9 @@ enum ExtxyzValue {
     Array(Vec<ExtxyzValue>),
 }
 
-fn boolean<'i>(input: &mut Stream<'i>) -> PResult<bool> {
-    let parse_true = alt(("true", "TRUE", "T", "True")).value(true);
-    let parse_false = alt(("false", "FALSE", "F", "False")).value(false);
+fn recognize_boolean<'i>(input: &mut Stream<'i>) -> PResult<&'i str> {
+    let parse_true = alt(("true", "TRUE", "T", "True")).value("true");
+    let parse_false = alt(("false", "FALSE", "F", "False")).value("false");
     alt((parse_true, parse_false)).parse_next(input)
 }
 
@@ -129,3 +129,36 @@ fn test_parse_value() -> PResult<()> {
     Ok(())
 }
 // 1a36024d ends here
+
+// [[file:../extxyz.note::68a854b3][68a854b3]]
+use serde::Deserialize;
+use serde_json::Value;
+
+struct Info {
+    dict: serde_json::Map<String, Value>,
+}
+
+#[test]
+fn test_info() {
+    let x = "0.0";
+    let v: Value = x.parse().unwrap();
+    dbg!(v);
+
+    let x = "[1, 2, 3]";
+    let v: Value = x.parse().unwrap();
+    dbg!(v);
+
+    let x = "[[5.44, 0.0], [1.0], [2, 3]]";
+    let v: Value = x.parse().unwrap();
+    dbg!(v);
+
+    let x = "true";
+    let v: Value = x.parse().unwrap();
+    dbg!(v);
+
+    // let mut x = Info::new();
+    // x.insert("12".into(), (1).into());
+    // x.insert("Time".into(), (0.0).into());
+    // dbg!(x);
+}
+// 68a854b3 ends here
