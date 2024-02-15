@@ -3,7 +3,7 @@ use winnow::ascii::till_line_ending;
 use winnow::ascii::{alphanumeric1, space0, space1};
 use winnow::combinator::alt;
 use winnow::combinator::{delimited, separated};
-use winnow::combinator::{not, opt, repeat};
+use winnow::combinator::{not, opt, repeat, todo};
 use winnow::prelude::*;
 use winnow::stream::AsChar;
 use winnow::token::take_till;
@@ -129,6 +129,40 @@ fn test_parse_value() -> PResult<()> {
     Ok(())
 }
 // 1a36024d ends here
+
+// [[file:../extxyz.note::dd9bed2f][dd9bed2f]]
+fn recognize_old_style_array<'i>(input: &mut Stream<'i>) -> PResult<Vec<String>> {
+    use winnow::ascii::space1;
+    use winnow::token::one_of;
+
+    // separated by commas and optional whitespace, or
+    // separated by whitespace
+    let comma = (",", opt(space1)).value(",");
+    let sep = alt((space1, comma));
+    let mut list_values = separated(1.., recognize_float, sep);
+    let values = delimited(opt(one_of(['[', '{'])), list_values, opt(one_of([']', '}']))).parse_next(input)?;
+    Ok(values)
+}
+
+#[test]
+fn test_parse_1d_array() -> PResult<()> {
+    let input = "5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44";
+    let (_, x) = recognize_old_style_array.parse_peek(input)?;
+    assert_eq!(x.len(), 9);
+
+    let input = "[5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44]";
+    let (_, x) = recognize_old_style_array.parse_peek(input)?;
+
+    let input = "{5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44}";
+    let (_, x) = recognize_old_style_array.parse_peek(input)?;
+
+    assert_eq!(x.len(), 9);
+    let input = "[5.44, 0.0,0.0,0.0,5.44,0.0,0.0,0.0,5.44]";
+    let (_, x) = recognize_old_style_array.parse_peek(input)?;
+    assert_eq!(x.len(), 9);
+    Ok(())
+}
+// dd9bed2f ends here
 
 // [[file:../extxyz.note::68a854b3][68a854b3]]
 use serde::Deserialize;
