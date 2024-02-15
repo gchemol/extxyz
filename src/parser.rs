@@ -1,4 +1,4 @@
-// [[file:../extxyz.note::ce5ca27d][ce5ca27d]]
+// [[file:../extxyz.note::51ad662c][51ad662c]]
 use winnow::ascii::till_line_ending;
 use winnow::ascii::{alphanumeric1, space0, space1};
 use winnow::combinator::alt;
@@ -10,60 +10,9 @@ use winnow::token::take_till;
 use winnow::token::take_while;
 
 pub type Stream<'i> = &'i str;
-
-// one key=value pair on second comment line
-fn key_value<'s>(i: &mut Stream<'s>) -> PResult<(&'s str, &'s str)> {
-    // Key: bare or quoted string
-    let key = alt((quoted_string, alphanumeric1)).parse_next(i)?;
-    // spaces are allowed around = sign, which do not become part of the key or value.
-    let _ = (opt(space0), "=", opt(space0)).parse_next(i)?;
-    let mut normal_value = take_while(0.., not_whitespace);
-    let val = alt((quoted_string, normal_value)).parse_next(i)?;
-    Ok((key, val))
-}
-
-/// Parse a non-empty block of text that doesn't include \ or "
-fn parse_string<'s>(input: &mut Stream<'s>) -> PResult<&'s str> {
-    let not_quote_slash = take_till(1.., ['"', '\\']);
-    // ensure that the output of take_till is non-empty.
-    let s = not_quote_slash.verify(|s: &str| !s.is_empty()).parse_next(input)?;
-    Ok(s)
-}
-
-fn not_whitespace(chr: char) -> bool {
-    !(chr.is_space() || chr.is_newline())
-}
-
-/// quoted string (starting and ending with double quote and containing only allowed characters)
-fn quoted_string<'s>(input: &mut Stream<'s>) -> PResult<&'s str> {
-    let r = delimited('"', parse_string, '"').parse_next(input)?;
-    Ok(r)
-}
-
-/// key=value pairs on second ("comment") line
-fn key_value_pairs<'s>(input: &mut Stream<'s>) -> PResult<Vec<(&'s str, &'s str)>> {
-    let r = separated(0.., key_value, space1).parse_next(input)?;
-    Ok(r)
-}
-
-#[test]
-fn test_key_value() {
-    let s = r#"Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3 Time=0.0"#;
-    let r = key_value_pairs.parse_peek(s);
-    dbg!(r);
-}
-// ce5ca27d ends here
+// 51ad662c ends here
 
 // [[file:../extxyz.note::1a36024d][1a36024d]]
-#[derive(Debug, PartialEq, Clone)]
-enum ExtxyzValue {
-    Int(usize),
-    Float(f64),
-    Boolean(bool),
-    Str(String),
-    Array(Vec<ExtxyzValue>),
-}
-
 fn recognize_boolean<'i>(input: &mut Stream<'i>) -> PResult<&'i str> {
     let parse_true = alt(("true", "TRUE", "T", "True")).value("true");
     let parse_false = alt(("false", "FALSE", "F", "False")).value("false");
@@ -130,6 +79,51 @@ fn test_parse_value() -> PResult<()> {
 }
 // 1a36024d ends here
 
+// [[file:../extxyz.note::ce5ca27d][ce5ca27d]]
+// one key=value pair on second comment line
+fn key_value<'s>(i: &mut Stream<'s>) -> PResult<(Stream<'s>, Stream<'s>)> {
+    // Key: bare or quoted string
+    let key = alt((quoted_string, alphanumeric1)).parse_next(i)?;
+    // spaces are allowed around = sign, which do not become part of the key or value.
+    let _ = (opt(space0), "=", opt(space0)).parse_next(i)?;
+    let mut normal_value = take_while(0.., not_whitespace);
+    let val = alt((quoted_string, normal_value)).parse_next(i)?;
+    Ok((key, val))
+}
+
+/// Parse a non-empty block of text that doesn't include \ or "
+fn parse_string<'s>(input: &mut Stream<'s>) -> PResult<Stream<'s>> {
+    let not_quote_slash = take_till(1.., ['"', '\\']);
+    // ensure that the output of take_till is non-empty.
+    let s = not_quote_slash.verify(|s: &str| !s.is_empty()).parse_next(input)?;
+    Ok(s)
+}
+
+fn not_whitespace(chr: char) -> bool {
+    !(chr.is_space() || chr.is_newline())
+}
+
+/// quoted string (starting and ending with double quote and containing only allowed characters)
+fn quoted_string<'s>(input: &mut Stream<'s>) -> PResult<Stream<'s>> {
+    let r = delimited('"', parse_string, '"').parse_next(input)?;
+    Ok(r)
+}
+
+/// key=value pairs on second ("comment") line
+fn key_value_pairs<'s>(input: &mut Stream<'s>) -> PResult<Vec<(Stream<'s>, Stream<'s>)>> {
+    let r = separated(0.., key_value, space1).parse_next(input)?;
+    Ok(r)
+}
+
+#[test]
+fn test_key_value() -> PResult<()> {
+    let s = r#"Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3 Time=0.0"#;
+    let (_, r) = key_value_pairs.parse_peek(s)?;
+    assert_eq!(r.len(), 3);
+    Ok(())
+}
+// ce5ca27d ends here
+
 // [[file:../extxyz.note::dd9bed2f][dd9bed2f]]
 fn recognize_old_style_array<'i>(input: &mut Stream<'i>) -> PResult<Vec<String>> {
     use winnow::ascii::space1;
@@ -163,6 +157,68 @@ fn test_parse_1d_array() -> PResult<()> {
     Ok(())
 }
 // dd9bed2f ends here
+
+// [[file:../extxyz.note::9a7ccb4b][9a7ccb4b]]
+#[derive(Debug, PartialEq)]
+struct PropertyValue {
+    name: String,
+    r#type: ValueType,
+    num_columns: usize,
+}
+
+#[derive(Debug, PartialEq)]
+enum ValueType {
+    String,
+    Integer,
+    Logical,
+    Real,
+}
+
+impl ValueType {
+    fn new(t: char) -> Self {
+        match t {
+            'S' => Self::String,
+            'I' => Self::Integer,
+            'R' => Self::Real,
+            'L' => Self::Logical,
+            _ => todo!(),
+        }
+    }
+}
+
+fn property_value<'i>(input: &mut Stream<'i>) -> PResult<PropertyValue> {
+    use winnow::ascii::alphanumeric1;
+    use winnow::ascii::digit1;
+    use winnow::combinator::seq;
+    use winnow::combinator::terminated;
+    use winnow::token::one_of;
+
+    // names the column(s)
+    let name = alphanumeric1;
+    // indicates the type in the column
+    let t_columns = one_of(['S', 'I', 'R', 'L']);
+    // specifying how many consecutive columns are being referred to
+    let n_columns = digit1;
+    let (name, type_char, num) = (terminated(name, ":"), terminated(t_columns, ":"), n_columns).parse_next(input)?;
+    Ok(PropertyValue {
+        name: name.to_string(),
+        r#type: ValueType::new(type_char),
+        num_columns: num.parse().unwrap(),
+    })
+}
+
+fn parse_property_values<'i>(input: &mut Stream<'i>) -> PResult<Vec<PropertyValue>> {
+    separated(1.., property_value, ":").parse_next(input)
+}
+
+#[test]
+fn test_parse_properties() -> PResult<()> {
+    let input = "species:S:1:pos:R:3";
+    let (_, properties) = parse_property_values.parse_peek(input)?;
+    assert_eq!(properties.len(), 2);
+    Ok(())
+}
+// 9a7ccb4b ends here
 
 // [[file:../extxyz.note::68a854b3][68a854b3]]
 use serde::Deserialize;
