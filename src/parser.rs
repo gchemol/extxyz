@@ -87,7 +87,7 @@ fn recognize_integer<'i>(input: &mut Stream<'i>) -> PResult<&'i str> {
 }
 
 /// string of one or more decimal digits, optionally preceded by sign
-fn recognize_float<'i>(input: &mut Stream<'i>) -> PResult<String> {
+fn recognize_sci_float<'i>(input: &mut Stream<'i>) -> PResult<String> {
     use winnow::ascii::digit1;
     use winnow::combinator::cut_err;
     use winnow::combinator::preceded;
@@ -121,15 +121,15 @@ fn test_parse_value() -> PResult<()> {
     assert_eq!(v, -12);
 
     let s = "-12.34d-1";
-    let (_, v) = recognize_float.try_map(|s| s.parse::<f64>()).parse_peek(s)?;
+    let (_, v) = recognize_sci_float.try_map(|s| s.parse::<f64>()).parse_peek(s)?;
     assert_eq!(v, -1.234);
 
     let s = "-12";
-    let (_, v) = recognize_float.try_map(|s| s.parse::<f64>()).parse_peek(s)?;
+    let (_, v) = recognize_sci_float.try_map(|s| s.parse::<f64>()).parse_peek(s)?;
     assert_eq!(v, -12.0);
 
     let s = "-12.3E-1";
-    let (_, v) = recognize_float.try_map(|s| s.parse::<f64>()).parse_peek(s)?;
+    let (_, v) = recognize_sci_float.try_map(|s| s.parse::<f64>()).parse_peek(s)?;
     assert_eq!(v, -1.23);
 
     Ok(())
@@ -137,7 +137,7 @@ fn test_parse_value() -> PResult<()> {
 // 1a36024d ends here
 
 // [[file:../extxyz.note::dd9bed2f][dd9bed2f]]
-fn recognize_old_style_array<'i>(input: &mut Stream<'i>) -> PResult<Vec<String>> {
+fn recognize_old_one_d_array<'i>(input: &mut Stream<'i>) -> PResult<Vec<String>> {
     use winnow::ascii::space1;
     use winnow::token::one_of;
 
@@ -145,7 +145,7 @@ fn recognize_old_style_array<'i>(input: &mut Stream<'i>) -> PResult<Vec<String>>
     // separated by whitespace
     let comma = (",", opt(space1)).value(",");
     let sep = alt((space1, comma));
-    let mut list_values = separated(1.., recognize_float, sep);
+    let mut list_values = separated(1.., recognize_sci_float, sep);
     let values = delimited(opt(one_of(['[', '{'])), list_values, opt(one_of([']', '}']))).parse_next(input)?;
     Ok(values)
 }
@@ -153,18 +153,18 @@ fn recognize_old_style_array<'i>(input: &mut Stream<'i>) -> PResult<Vec<String>>
 #[test]
 fn test_parse_1d_array() -> PResult<()> {
     let input = "5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44";
-    let (_, x) = recognize_old_style_array.parse_peek(input)?;
+    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
     assert_eq!(x.len(), 9);
 
     let input = "[5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44]";
-    let (_, x) = recognize_old_style_array.parse_peek(input)?;
+    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
 
     let input = "{5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44}";
-    let (_, x) = recognize_old_style_array.parse_peek(input)?;
+    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
 
     assert_eq!(x.len(), 9);
     let input = "[5.44, 0.0,0.0,0.0,5.44,0.0,0.0,0.0,5.44]";
-    let (_, x) = recognize_old_style_array.parse_peek(input)?;
+    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
     assert_eq!(x.len(), 9);
     Ok(())
 }
@@ -172,7 +172,7 @@ fn test_parse_1d_array() -> PResult<()> {
 
 // [[file:../extxyz.note::1e59b3a0][1e59b3a0]]
 fn reformat_old_style_array(input: Stream) -> PResult<String> {
-    let (rest, ss) = recognize_old_style_array.parse_peek(input)?;
+    let (rest, ss) = recognize_old_one_d_array.parse_peek(input)?;
     // Speical case: not-list="1.2 2 some"
     if rest.is_empty() {
         let reformatted: String = format!("[{}]", ss.join(", "));
@@ -183,7 +183,7 @@ fn reformat_old_style_array(input: Stream) -> PResult<String> {
 }
 
 fn reformat_extxyz_value(input: &str) -> String {
-    if let Ok((rest, recognized)) = recognize_float.parse_peek(input) {
+    if let Ok((rest, recognized)) = recognize_sci_float.parse_peek(input) {
         if rest.is_empty() {
             return recognized;
         }
@@ -282,6 +282,10 @@ fn test_parse_properties() -> PResult<()> {
 }
 // 9a7ccb4b ends here
 
+// [[file:../extxyz.note::9ecc3cf5][9ecc3cf5]]
+// extract "Lattice" entry and apply semantic conversions
+// 9ecc3cf5 ends here
+
 // [[file:../extxyz.note::68a854b3][68a854b3]]
 use serde::Deserialize;
 use serde_json::Value;
@@ -335,3 +339,68 @@ fn test_parse_extxyz_title() -> PResult<()> {
     Ok(())
 }
 // 68a854b3 ends here
+
+// [[file:../extxyz.note::796d9c9d][796d9c9d]]
+// Element xyz extra
+type AtomData<'s> = (&'s str, [f64; 3], &'s str);
+
+fn parse_xyz_line<'s>(frame_text: &mut Stream<'s>) -> PResult<AtomData<'s>> {
+    use winnow::ascii::alpha1;
+    use winnow::ascii::digit1;
+    use winnow::ascii::line_ending;
+    use winnow::ascii::space0;
+    use winnow::ascii::till_line_ending;
+    use winnow::combinator::delimited;
+    use winnow::combinator::terminated;
+
+    // element symbol or number
+    let sym_or_num = alt((alpha1, digit1));
+    let ele = terminated(sym_or_num, space1).parse_next(frame_text)?;
+    let float = recognize_sci_float.try_map(|s| s.parse::<f64>());
+    let xyz: Vec<_> = separated(3, float, space1).parse_next(frame_text)?;
+    let (_, extra) = (space0, till_line_ending).parse_next(frame_text)?;
+
+    Ok((ele, xyz.try_into().unwrap(), extra))
+}
+
+// num_of_atoms, comment_line, atoms_list
+pub fn parse_extxyz_frame<'s>(frame_text: &mut Stream<'s>) -> PResult<(usize, &'s str, Vec<AtomData<'s>>)> {
+    use winnow::ascii::alpha1;
+    use winnow::ascii::digit1;
+    use winnow::ascii::line_ending;
+    use winnow::ascii::space0;
+    use winnow::ascii::till_line_ending;
+    use winnow::combinator::delimited;
+    use winnow::combinator::terminated;
+
+    let natoms = delimited(space0, digit1, space0).try_map(|s: &str| s.parse::<usize>());
+    let natoms = terminated(natoms, line_ending).parse_next(frame_text)?;
+    let mut any_line = terminated(till_line_ending, line_ending);
+    let comment = any_line.parse_next(frame_text)?;
+    let xyz_list: Vec<_> = separated(1.., parse_xyz_line, line_ending).parse_next(frame_text)?;
+
+    Ok((natoms, comment, xyz_list))
+}
+
+#[test]
+fn test_parse_extxyz_frame() -> PResult<()> {
+    let input = "C        3.66613204       0.98814863       0.17310000\n";
+    let (_, (element, _xyz, extra)) = parse_xyz_line.parse_peek(input)?;
+    assert_eq!(element, "C");
+
+    let input = "C        3.66613204       0.98814863       0.17310000 extra F\n";
+    let (_, (element, _xyz, extra)) = parse_xyz_line.parse_peek(input)?;
+    assert_eq!(extra, "extra F");
+
+    let input = r#" 128
+comment
+C        3.66613204       0.98814863       0.17310000
+C        1.89018534       2.42153712       3.34052440
+C        2.66063880       4.93469322       3.30108500 "#;
+    let (_, (n, comment, atoms)) = parse_extxyz_frame.parse_peek(input)?;
+    assert_eq!(n, 128);
+    assert_eq!(atoms.len(), 3);
+
+    Ok(())
+}
+// 796d9c9d ends here

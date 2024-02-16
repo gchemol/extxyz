@@ -1,11 +1,12 @@
 // [[file:../extxyz.note::eb2a32cd][eb2a32cd]]
 // #![deny(warnings)]
-// #![deny(clippy::all)]
+#![deny(clippy::all)]
 // eb2a32cd ends here
 
-// [[file:../extxyz.note::*mods][mods:1]]
+// [[file:../extxyz.note::10e3ae82][10e3ae82]]
+mod frame;
 mod parser;
-// mods:1 ends here
+// 10e3ae82 ends here
 
 // [[file:../extxyz.note::*mods][mods:1]]
 
