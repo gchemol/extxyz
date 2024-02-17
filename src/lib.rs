@@ -1,7 +1,23 @@
 // [[file:../extxyz.note::eb2a32cd][eb2a32cd]]
 // #![deny(warnings)]
 #![deny(clippy::all)]
+// #![deny(missing_docs)]
 // eb2a32cd ends here
+
+//! Read large trajectory file in xyz/extxyz format
+//!
+//! # Example
+//!
+//! ```rust,ignore,no_run
+//! use extxyz::*;
+//! 
+//! let xyzfile = "large-trajectory.xyz";
+//! let frames = read_xyz_frames(xyzfile, (2270..).step_by(2))?;
+//! for frame in frames {
+//!     let atoms = RawAtoms::parse_from(&frame)?;
+//!     dbg!(atoms);
+//! }
+//! ```
 
 // [[file:../extxyz.note::10e3ae82][10e3ae82]]
 mod parser;

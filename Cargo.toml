@@ -1,7 +1,7 @@
 # [[file:extxyz.note::e345323a][e345323a]]
 [package]
 name = "extxyz"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 authors = ["Wenping Guo <ybyygu@gmail.com>"]
 description = "A parser for extxyz format"
@@ -26,6 +26,6 @@ criterion = "0.4"
 # for adhoc hacking
 adhoc = []
 
-[patch.crates-io]
-grep-reader = { path = "/home/ybyygu/Workspace/Programming/gchemol-rs/grep-reader" }
+# [patch.crates-io]
+# grep-reader = { path = "/home/ybyygu/Workspace/Programming/gchemol-rs/grep-reader" }
 # e345323a ends here
