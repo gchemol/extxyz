@@ -1,3 +1,7 @@
+// [[file:../extxyz.note::7d01bbbd][7d01bbbd]]
+
+// 7d01bbbd ends here
+
 // [[file:../extxyz.note::bc363bfe][bc363bfe]]
 use std::path::Path;
 
@@ -39,12 +43,14 @@ pub fn read_xyz_frames(path: impl AsRef<Path>, mut selection: impl Iterator<Item
 // [[file:../extxyz.note::fd6d5ff7][fd6d5ff7]]
 #[test]
 fn test_read_xyz() -> Result<()> {
+    use super::RawAtoms;
+
     let f = "/home/ybyygu/Workspace/ToDo/ASAP/20231221 星辰表面反应轨迹分析/vasp_nmd_2.xyz";
 
     let frames = read_xyz_frames(f, (2270..).step_by(2))?;
     for frame in frames {
         let mut frame = frame.clone();
-        let atoms = crate::parser::RawAtoms::parse_from(&frame)?;
+        let atoms = RawAtoms::parse_from(&frame)?;
         dbg!(atoms);
     }
 
