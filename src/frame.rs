@@ -1,7 +1,3 @@
-// [[file:../extxyz.note::*read][read:1]]
-
-// read:1 ends here
-
 // [[file:../extxyz.note::bc363bfe][bc363bfe]]
 use std::ops::RangeBounds;
 use std::path::Path;
@@ -39,11 +35,11 @@ fn read_xyz_frames(path: impl AsRef<Path>, mut selection: impl Iterator<Item = u
 fn test_read_xyz() -> Result<()> {
     let f = "/home/ybyygu/Workspace/ToDo/ASAP/20231221 星辰表面反应轨迹分析/vasp_nmd_2.xyz";
 
-    let mut buf = String::new();
     let frames = read_xyz_frames(f, (2270..).step_by(2))?;
     for frame in frames {
-        // let mut frame = &frame;
-        crate::parser::parse_extxyz_frame(&mut &frame[..]);
+        let mut frame = frame.clone();
+        let atoms = crate::parser::RawAtoms::parse_from(&frame)?;
+        dbg!(atoms);
     }
 
     Ok(())
