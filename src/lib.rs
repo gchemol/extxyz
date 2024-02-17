@@ -15,7 +15,7 @@
 //! let frames = read_xyz_frames(xyzfile, (2270..).step_by(2))?;
 //! for frame in frames {
 //!     let atoms = RawAtoms::parse_from(&frame)?;
-//!     dbg!(atoms);
+//!     dbg!(atoms.comment);
 //! }
 //! ```
 
@@ -57,7 +57,7 @@ pub struct RawAtom<'s> {
 pub struct RawAtoms<'s> {
     /// The number of atoms
     pub natoms: usize,
-    /// The comment in the second line
+    /// The content of the comment line
     pub comment: &'s str,
     /// The atom list parsed in the remaining lines
     pub atoms: Vec<RawAtom<'s>>,

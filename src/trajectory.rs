@@ -1,13 +1,11 @@
 // [[file:../extxyz.note::7d01bbbd][7d01bbbd]]
-
-// 7d01bbbd ends here
-
-// [[file:../extxyz.note::bc363bfe][bc363bfe]]
 use std::path::Path;
 
 use anyhow::*;
 use grep_reader::GrepReader;
+// 7d01bbbd ends here
 
+// [[file:../extxyz.note::bc363bfe][bc363bfe]]
 /// Return an iterator over strings of selected frames in xyz/extxyz
 /// format from trajectory in `path`. Large trajectory file is well
 /// supported.
