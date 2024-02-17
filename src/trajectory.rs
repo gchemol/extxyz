@@ -1,11 +1,17 @@
 // [[file:../extxyz.note::bc363bfe][bc363bfe]]
-use std::ops::RangeBounds;
 use std::path::Path;
 
 use anyhow::*;
 use grep_reader::GrepReader;
 
-fn read_xyz_frames(path: impl AsRef<Path>, mut selection: impl Iterator<Item = usize>) -> Result<impl Iterator<Item = String>> {
+/// Return an iterator over strings of selected frames in xyz/extxyz
+/// format from trajectory in `path`. Large trajectory file is well
+/// supported.
+///
+/// # Parameters
+/// * path: path to the trajectory file
+/// * selection: an iterator over indices of selected frames
+pub fn read_xyz_frames(path: impl AsRef<Path>, mut selection: impl Iterator<Item = usize>) -> Result<impl Iterator<Item = String>> {
     let mut reader = GrepReader::try_from_path(path.as_ref())?;
     // allow whitespace before or after number
     let n = reader.mark(r"^\s*\d+\s*$", None)?;

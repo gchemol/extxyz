@@ -1,5 +1,8 @@
 // [[file:../extxyz.note::51ad662c][51ad662c]]
-use winnow::ascii::till_line_ending;
+// #![deny(warnings)]
+
+use super::{RawAtom, RawAtoms};
+
 use winnow::ascii::{alphanumeric1, space0, space1};
 use winnow::combinator::alt;
 use winnow::combinator::cut_err;
@@ -402,17 +405,8 @@ pub fn parse_xyz_frame<'s>(frame_text: &mut Stream<'s>) -> PResult<(usize, &'s s
 // 796d9c9d ends here
 
 // [[file:../extxyz.note::0b1a44fb][0b1a44fb]]
-#[derive(Debug)]
-pub struct RawAtom<'s> {
-    /// Element symbol or number
-    pub element: &'s str,
-    /// The Cartesian coordinates
-    pub positions: [f64; 3],
-    /// Any rest input other than above
-    pub extra: &'s str,
-}
-
 impl<'s> RawAtom<'s> {
+    /// Parse `RawAtom` from xyz line `input` in xyz format.
     pub fn parse_from(input: &'s str) -> anyhow::Result<Self> {
         use anyhow::anyhow;
 
@@ -422,20 +416,9 @@ impl<'s> RawAtom<'s> {
         Ok(atom)
     }
 }
-// 0b1a44fb ends here
-
-// [[file:../extxyz.note::a26da64f][a26da64f]]
-#[derive(Debug)]
-pub struct RawAtoms<'s> {
-    /// The number of atoms
-    pub natoms: usize,
-    /// The comment in the second line
-    pub comment: &'s str,
-    /// The atom list parsed in the remaining lines
-    pub atoms: Vec<RawAtom<'s>>,
-}
 
 impl<'s> RawAtoms<'s> {
+    /// Parse `RawAtoms` from a complete xyz frame `input` in xyz format.
     pub fn parse_from(input: &'s str) -> anyhow::Result<Self> {
         use anyhow::anyhow;
 
@@ -446,7 +429,7 @@ impl<'s> RawAtoms<'s> {
         Ok(Self { natoms, comment, atoms })
     }
 }
-// a26da64f ends here
+// 0b1a44fb ends here
 
 // [[file:../extxyz.note::bf745d2e][bf745d2e]]
 #[test]

@@ -4,15 +4,11 @@
 // eb2a32cd ends here
 
 // [[file:../extxyz.note::10e3ae82][10e3ae82]]
-mod frame;
 mod parser;
+mod trajectory;
 // 10e3ae82 ends here
 
-// [[file:../extxyz.note::*mods][mods:1]]
-
-// mods:1 ends here
-
-// [[file:../extxyz.note::*docs][docs:1]]
+// [[file:../extxyz.note::bf78776e][bf78776e]]
 #[cfg(feature = "adhoc")]
 /// Docs for local mods
 pub mod docs {
@@ -24,6 +20,34 @@ pub mod docs {
         };
     }
 
-    // export_doc!(codec);
+    export_doc!(trajectory);
 }
-// docs:1 ends here
+// bf78776e ends here
+
+// [[file:../extxyz.note::bf0a7abd][bf0a7abd]]
+#[derive(Debug)]
+/// Represents the parsed atom in raw xyz format
+pub struct RawAtom<'s> {
+    /// Element symbol or number
+    pub element: &'s str,
+    /// The Cartesian coordinates
+    pub positions: [f64; 3],
+    /// Any rest input other than above
+    pub extra: &'s str,
+}
+
+#[derive(Debug)]
+/// Represents the parsed atoms in raw xyz format
+pub struct RawAtoms<'s> {
+    /// The number of atoms
+    pub natoms: usize,
+    /// The comment in the second line
+    pub comment: &'s str,
+    /// The atom list parsed in the remaining lines
+    pub atoms: Vec<RawAtom<'s>>,
+}
+// bf0a7abd ends here
+
+// [[file:../extxyz.note::c3a71075][c3a71075]]
+pub use crate::trajectory::*;
+// c3a71075 ends here
