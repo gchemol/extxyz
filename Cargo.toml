@@ -8,6 +8,7 @@ description = "A parser for extxyz format"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/gchemol/extxyz"
 repository = "https://github.com/gchemol/extxyz"
+exclude = ["bin/*", "docs/*", "ltxpng/*", "data/*"]
 
 [dependencies]
 winnow = "0.5.39"
@@ -17,7 +18,6 @@ serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0.79"
 
 [dev-dependencies]
-criterion = "0.4"
 # for test
 gchemol-parser = "0.4.5"
 gchemol-gut = "0.4.4"
@@ -29,6 +29,6 @@ gchemol-gut = "0.4.4"
 # for adhoc hacking
 adhoc = []
 
-[patch.crates-io]
-grep-reader = { path = "/home/ybyygu/Workspace/Programming/gchemol-rs/grep-reader" }
+# [patch.crates-io]
+# grep-reader = { path = "/home/ybyygu/Workspace/Programming/gchemol-rs/grep-reader" }
 # e345323a ends here

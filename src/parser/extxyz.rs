@@ -1,5 +1,5 @@
 // [[file:../../extxyz.note::bf987e7c][bf987e7c]]
-use super::{label, recognize_sci_float, Stream};
+use super::{label, recognize_boolean, recognize_sci_float, Stream};
 use crate::{RawAtom, RawAtoms};
 
 use winnow::ascii::{space0, space1};
@@ -9,6 +9,97 @@ use winnow::combinator::separated;
 use winnow::PResult;
 use winnow::Parser;
 // bf987e7c ends here
+
+// [[file:../../extxyz.note::823b4ece][823b4ece]]
+use serde::Deserialize;
+use serde::Serialize;
+use serde_json::Value;
+
+/// Represents the data parsed from extxyz comment line.
+///
+/// Example input: Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3 Time=0.0
+#[derive(Default, Debug, Clone)]
+pub struct Info {
+    /// A heterogeneous map (dict) for parsed key-value pairs
+    dict: serde_json::Map<String, Value>,
+}
+
+/// Represents one value item for special key "Properties", which
+/// defines the columns in the subsequent lines in the frame.
+///
+/// Example input: Properties=species:S:1:pos:R:3
+#[derive(Debug, Serialize)]
+pub struct PropertyValue {
+    pub name: String,
+    pub r#type: PropertyValueType,
+    pub num_columns: usize,
+}
+
+/// Represents the column value type in `Properties` values
+#[derive(Debug, Serialize)]
+pub enum PropertyValueType {
+    /// S
+    String,
+    /// I
+    Integer,
+    /// L
+    Logical,
+    /// R
+    Real,
+}
+
+impl PropertyValueType {
+    fn new(t: char) -> Self {
+        match t {
+            'S' => Self::String,
+            'I' => Self::Integer,
+            'R' => Self::Real,
+            'L' => Self::Logical,
+            _ => todo!(),
+        }
+    }
+}
+// 823b4ece ends here
+
+// [[file:../../extxyz.note::9a7ccb4b][9a7ccb4b]]
+fn property_value<'i>(input: &mut Stream<'i>) -> PResult<PropertyValue> {
+    use winnow::ascii::alphanumeric1;
+    use winnow::ascii::digit1;
+    use winnow::combinator::seq;
+    use winnow::combinator::terminated;
+    use winnow::token::one_of;
+
+    // names the column(s)
+    let name = alphanumeric1;
+    // indicates the type in the column
+    let t_columns = one_of(['S', 'I', 'R', 'L']);
+    // specifying how many consecutive columns are being referred to
+    let n_columns = digit1;
+    let (name, type_char, num) = (terminated(name, ":"), terminated(t_columns, ":"), n_columns).parse_next(input)?;
+    Ok(PropertyValue {
+        name: name.to_string(),
+        r#type: PropertyValueType::new(type_char),
+        num_columns: num.parse().unwrap(),
+    })
+}
+
+fn parse_property_values<'i>(input: &mut Stream<'i>) -> PResult<Vec<PropertyValue>> {
+    separated(1.., property_value, ":").parse_next(input)
+}
+
+#[test]
+fn test_parse_properties() -> PResult<()> {
+    let input = "species:S:1:pos:R:3";
+    let (_, properties) = parse_property_values.parse_peek(input)?;
+    assert_eq!(properties.len(), 2);
+
+    Ok(())
+}
+// 9a7ccb4b ends here
+
+// [[file:../../extxyz.note::9ecc3cf5][9ecc3cf5]]
+// extract "Lattice" entry and apply semantic conversions
+// 9ecc3cf5 ends here
 
 // [[file:../../extxyz.note::ce5ca27d][ce5ca27d]]
 use winnow::combinator::delimited;
@@ -72,3 +163,180 @@ fn test_key_value() -> PResult<()> {
     Ok(())
 }
 // ce5ca27d ends here
+
+// [[file:../../extxyz.note::1e59b3a0][1e59b3a0]]
+fn reformat_old_style_array(input: Stream) -> PResult<String> {
+    let (rest, ss) = recognize_old_one_d_array.parse_peek(input)?;
+    // Speical case: not-list="1.2 2 some"
+    if rest.is_empty() {
+        let reformatted: String = format!("[{}]", ss.join(", "));
+        Ok(reformatted)
+    } else {
+        Ok(input.to_string())
+    }
+}
+
+fn reformat_extxyz_value(input: &str) -> String {
+    if let Ok((rest, recognized)) = recognize_sci_float.parse_peek(input) {
+        if rest.is_empty() {
+            return recognized;
+        }
+    }
+
+    if let Ok((rest, recognized)) = recognize_boolean.parse_peek(input) {
+        if rest.is_empty() {
+            return recognized.to_string();
+        }
+    }
+
+    if let Ok(recognized) = reformat_old_style_array(input) {
+        return recognized.into();
+    }
+
+    input.to_string()
+}
+
+#[test]
+fn test_extxyz_value() -> PResult<()> {
+    let s = "True";
+    let x = reformat_extxyz_value(s);
+    assert_eq!(x, "true");
+
+    let s = "-12.4D-5";
+    let x = reformat_extxyz_value(s);
+    assert_eq!(x, "-12.4E-5");
+
+    let s = "-12";
+    let x = reformat_extxyz_value(s);
+    assert_eq!(x, "-12");
+
+    Ok(())
+}
+// 1e59b3a0 ends here
+
+// [[file:../../extxyz.note::dd9bed2f][dd9bed2f]]
+fn recognize_old_one_d_array<'i>(input: &mut Stream<'i>) -> PResult<Vec<String>> {
+    use winnow::ascii::space1;
+    use winnow::token::one_of;
+
+    // separated by commas and optional whitespace, or
+    // separated by whitespace
+    let comma = (",", opt(space1)).value(",");
+    let sep = alt((space1, comma));
+    let mut list_values = separated(1.., recognize_sci_float, sep);
+    let values = delimited(opt(one_of(['[', '{'])), list_values, opt(one_of([']', '}']))).parse_next(input)?;
+    Ok(values)
+}
+
+#[test]
+fn test_parse_1d_array() -> PResult<()> {
+    let input = "5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44";
+    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
+    assert_eq!(x.len(), 9);
+
+    let input = "[5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44]";
+    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
+
+    let input = "{5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44}";
+    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
+
+    assert_eq!(x.len(), 9);
+    let input = "[5.44, 0.0,0.0,0.0,5.44,0.0,0.0,0.0,5.44]";
+    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
+    assert_eq!(x.len(), 9);
+    Ok(())
+}
+// dd9bed2f ends here
+
+// [[file:../../extxyz.note::68a854b3][68a854b3]]
+fn parse_extxyz_title<'s>(title: &mut Stream<'s>) -> PResult<Info> {
+    let kv_pairs = parse_key_value_pairs.parse_next(title)?;
+
+    let mut info = Info::default();
+    for (k, v) in kv_pairs {
+        let v = reformat_extxyz_value(v);
+        let k = k.to_string();
+        // convert value in string to json typed `Value`
+        if let Ok(v_parsed) = v.parse::<Value>() {
+            info.dict.insert(k, v_parsed);
+        } else {
+            info.dict.insert(k, v.into());
+        }
+    }
+
+    Ok(info)
+}
+
+#[test]
+fn test_parse_extxyz_title() -> PResult<()> {
+    let mut s = r#"Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3 Time=0.0"#;
+    let info = parse_extxyz_title(&mut s)?;
+    assert_eq!(info.dict["Time"], 0.0);
+
+    let mut s = r#"s=string b1=True b2= F real=3.14 integer=-314 array="[1,2,3]""#;
+    let info = parse_extxyz_title(&mut s)?;
+    assert_eq!(info.dict["real"], 3.14);
+    assert_eq!(info.dict["s"], "string");
+    assert_eq!(info.dict["integer"], -314);
+    assert_eq!(info.dict["b1"], true);
+    assert_eq!(info.dict["b2"], false);
+    assert_eq!(info.dict["array"][0], 1);
+
+    let mut s = r#""real quoted"="3.14" array="1.2 2 3" nested="[[1], [2], [3]]" other="1 2 T""#;
+    let info = parse_extxyz_title(&mut s)?;
+    assert_eq!(info.dict["real quoted"], 3.14);
+    assert_eq!(info.dict["array"][0], 1.2);
+    assert_eq!(info.dict["nested"][0][0], 1);
+    assert_eq!(info.dict["other"], "1 2 T");
+
+    Ok(())
+}
+// 68a854b3 ends here
+
+// [[file:../../extxyz.note::a15396a3][a15396a3]]
+impl std::str::FromStr for Info {
+    type Err = anyhow::Error;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        parse_extxyz_title.parse(input).map_err(|e| {
+            let error = e.to_string();
+            anyhow::anyhow!("Parse extxyz comment line failure:\n{error}\ninput={input:?}")
+        })
+    }
+}
+
+impl Info {
+    /// Returns the associated value of `key`.
+    pub fn get(&self, key: &str) -> Option<&Value> {
+        self.dict.get(key)
+    }
+
+    /// Return parsed per-atom properties
+    pub fn get_properties(&self) -> anyhow::Result<Vec<PropertyValue>> {
+        let properties = if let Some(Value::String(properties)) = self.dict.get("Properties") {
+            properties
+        } else {
+            "Properties=species:S:1:pos:R:3"
+        };
+        let property_values = parse_property_values.parse(properties).map_err(|e| {
+            let error = e.to_string();
+            anyhow::anyhow!("failed to parse extxyz properties:\n{error}\ninput={properties:?}")
+        })?;
+
+        Ok(property_values)
+    }
+}
+// a15396a3 ends here
+
+// [[file:../../extxyz.note::b4d166a0][b4d166a0]]
+#[test]
+fn test_extxyz_info() -> anyhow::Result<()> {
+    let s = r#"Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3 Time=0.0"#;
+    let info: Info = s.parse()?;
+    assert_eq!(info.get("Time").unwrap(), 0.0);
+    assert_eq!(info.get("Lattice").unwrap()[0], 5.44);
+    dbg!(info.get_properties());
+
+    Ok(())
+}
+// b4d166a0 ends here

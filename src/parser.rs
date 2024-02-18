@@ -15,8 +15,8 @@ use winnow::token::take_while;
 // 51ad662c ends here
 
 // [[file:../extxyz.note::a270017d][a270017d]]
-mod extxyz;
-mod xyz;
+pub mod extxyz;
+pub mod xyz;
 // a270017d ends here
 
 // [[file:../extxyz.note::91f20e0b][91f20e0b]]
@@ -109,6 +109,6 @@ fn test_parse_value() -> PResult<()> {
 // 1a36024d ends here
 
 // [[file:../extxyz.note::9bbb5034][9bbb5034]]
-pub use self::extxyz::*;
-pub use self::xyz::*;
+// pub use self::extxyz::*;
+// pub use self::xyz::*;
 // 9bbb5034 ends here
