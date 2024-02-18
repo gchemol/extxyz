@@ -1,5 +1,8 @@
 // [[file:../../extxyz.note::bf987e7c][bf987e7c]]
-use super::{label, recognize_boolean, recognize_sci_float, Stream};
+use anyhow::anyhow;
+use serde_json::json;
+
+use super::{label, recognize_boolean, recognize_integer, recognize_sci_float, Stream};
 use crate::{RawAtom, RawAtoms};
 
 use winnow::ascii::{space0, space1};
@@ -100,6 +103,56 @@ fn test_parse_properties() -> PResult<()> {
 // [[file:../../extxyz.note::9ecc3cf5][9ecc3cf5]]
 // extract "Lattice" entry and apply semantic conversions
 // 9ecc3cf5 ends here
+
+// [[file:../../extxyz.note::78659ab1][78659ab1]]
+fn parse_extra_atom_data(input: &str, info: &Info) -> anyhow::Result<serde_json::Map<String, Value>> {
+    use winnow::combinator::preceded;
+    use winnow::error::ContextError;
+    use winnow::error::ErrMode;
+
+    use PropertyValueType::*;
+
+    let mut map = serde_json::Map::new();
+    let mut s = input.trim();
+    let atom_properties = info.get_properties()?;
+    let e_any = |e: ErrMode<ContextError>| anyhow!(e.to_string());
+    for col in atom_properties {
+        let mut real_value = preceded(space0, recognize_sci_float).try_map(|x| x.parse::<f64>());
+        let mut bool_value = preceded(space0, recognize_boolean).try_map(|x| x.parse::<bool>());
+        let mut isize_value = preceded(space0, recognize_integer).try_map(|x| x.parse::<isize>());
+        let value = match (&col.name[..], col.r#type, col.num_columns) {
+            // ignore element and positions columns
+            ("species" | "pos", _, _) => Value::Null,
+            (_, Real, 1) => json!(real_value.parse_next(&mut s).map_err(e_any)?),
+            (_, Integer, 1) => json!(isize_value.parse_next(&mut s).map_err(e_any)?),
+            (_, Logical, 1) => json!(bool_value.parse_next(&mut s).map_err(e_any)?),
+            (_, String, 1) => json!(bare_string.parse_next(&mut s).map_err(e_any)?),
+            (_, Real, num_col) if num_col > 1 => {
+                let v: Vec<_> = separated(num_col, real_value, space1).parse_next(&mut s).map_err(e_any)?;
+                json!(v)
+            }
+            (_, Integer, num_col) if num_col > 1 => {
+                let v: Vec<_> = separated(num_col, isize_value, space1).parse_next(&mut s).map_err(e_any)?;
+                json!(v)
+            }
+            (_, Logical, num_col) if num_col > 1 => {
+                let v: Vec<_> = separated(num_col, bool_value, space1).parse_next(&mut s).map_err(e_any)?;
+                json!(v)
+            }
+            (_, String, num_col) if num_col > 1 => {
+                let v: Vec<_> = separated(num_col, bare_string, space1).parse_next(&mut s).map_err(e_any)?;
+                json!(v)
+            }
+            _ => anyhow::bail!("invalid column data ({s:?}) or column info: {info:?}"),
+        };
+        if value != Value::Null {
+            map.insert(col.name.into(), value);
+        }
+    }
+
+    Ok(map)
+}
+// 78659ab1 ends here
 
 // [[file:../../extxyz.note::ce5ca27d][ce5ca27d]]
 use winnow::combinator::delimited;
@@ -326,16 +379,28 @@ impl Info {
         Ok(property_values)
     }
 }
+
+impl Info {
+    /// Parse atom properties from extra columns in `extra`.
+    pub fn parse_extra_columns(&self, extra: &str) -> anyhow::Result<serde_json::Map<String, Value>> {
+        parse_extra_atom_data(extra, &self)
+    }
+}
 // a15396a3 ends here
 
 // [[file:../../extxyz.note::b4d166a0][b4d166a0]]
 #[test]
 fn test_extxyz_info() -> anyhow::Result<()> {
-    let s = r#"Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3 Time=0.0"#;
+    let s = r#"Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3:forces:R:3:freeze:L:1 Time=0.0"#;
     let info: Info = s.parse()?;
     assert_eq!(info.get("Time").unwrap(), 0.0);
     assert_eq!(info.get("Lattice").unwrap()[0], 5.44);
     dbg!(info.get_properties());
+
+    let extra = "       0.03244218       0.02902981      -0.00495554 F";
+    let atom_properties = info.parse_extra_columns(extra)?;
+    assert_eq!(atom_properties["forces"][0], 0.03244218);
+    assert_eq!(atom_properties["freeze"], false);
 
     Ok(())
 }

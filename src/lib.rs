@@ -9,13 +9,31 @@
 //! # Example
 //!
 //! ```rust,ignore,no_run
-//! use extxyz::*;
+//! use extxyz::{read_xyz_frames, RawAtoms};
 //! 
-//! let xyzfile = "large-trajectory.xyz";
-//! let frames = read_xyz_frames(xyzfile, (2270..).step_by(2))?;
-//! for frame in frames {
-//!     let atoms = RawAtoms::parse_from(&frame)?;
-//!     dbg!(atoms.comment);
+//! fn main() -> anyhow::Result<()> {
+//!     use super::RawAtoms;
+//! 
+//!     let f = "nmd.xyz";
+//!     // skip the first 100 frames, and read frames with a step size `10`
+//!     let selection = (100..).step_by(10);
+//!     let frames = read_xyz_frames(f, selection)?;
+//!     for frame in frames {
+//!         let atoms = RawAtoms::parse_from(&frame)?;
+//!         // it will returen error if the comment is not in normal extxyz format
+//!         let info: Info = atoms.comment.parse()?;
+//!         // get molecule's properties
+//!         let energy = info.get("energy").unwrap();
+//!         // get atom's properties
+//!         for atom in atoms {
+//!             // parse extra data for each atom
+//!             let atom_properties = info.parse_extra_columns(&atom.extra)?;
+//!             // get `forces` from extra_data_dict
+//!             let forces = atom_properties["forces"];
+//!         }
+//!     }
+//! 
+//!     Ok(())
 //! }
 //! ```
 
@@ -67,5 +85,5 @@ pub struct RawAtoms<'s> {
 // [[file:../extxyz.note::c3a71075][c3a71075]]
 pub use crate::trajectory::*;
 
-// pub use crate::parser::extxyz::*;
+pub use crate::parser::extxyz::Info;
 // c3a71075 ends here
