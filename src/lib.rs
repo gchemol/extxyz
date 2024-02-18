@@ -36,7 +36,7 @@ pub mod docs {
         };
     }
 
-    export_doc!(trajectory);
+    export_doc!(parser);
 }
 // bf78776e ends here
 

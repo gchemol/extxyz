@@ -1,5 +1,5 @@
 // [[file:../../extxyz.note::3812ce95][3812ce95]]
-use super::recognize_sci_float;
+use super::{label, recognize_sci_float};
 use crate::{RawAtom, RawAtoms};
 
 use winnow::ascii::{space0, space1};
@@ -13,12 +13,6 @@ type Stream<'i> = &'i str;
 // 3812ce95 ends here
 
 // [[file:../../extxyz.note::739400bd][739400bd]]
-use winnow::error::StrContext;
-
-fn label(s: &'static str) -> StrContext {
-    StrContext::Label(s)
-}
-
 // Parse one line until line ending
 fn parse_xyz_line<'s>(frame_text: &mut Stream<'s>) -> PResult<RawAtom<'s>> {
     use winnow::ascii::alpha1;
