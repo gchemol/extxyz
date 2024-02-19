@@ -24,7 +24,7 @@ gchemol-parser = "0.4.5"
 gchemol-gut = "0.4.4"
 
 # workspace independent
-[workspace]
+# [workspace]
 
 [features]
 # for adhoc hacking
