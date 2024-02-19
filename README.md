@@ -10,11 +10,10 @@ properties (energy, dipole moment, etc.)specified in the comment line.
 
 Example usage:
 
-    use extxyz::{read_xyz_frames, RawAtoms};
+    use extxyz::{read_xyz_frames, RawAtoms, Info};
     
     fn main() -> anyhow::Result<()> {
-        use super::RawAtoms;
-    
+        // a large xyz/extxyz trajectory file
         let f = "nmd.xyz";
         // skip the first 100 frames, and read frames with a step size `10`
         let selection = (100..).step_by(10);
@@ -26,11 +25,11 @@ Example usage:
             // get molecule's properties
             let energy = info.get("energy").unwrap();
             // get atom's properties
-            for atom in atoms {
+            for atom in atoms.atoms {
                 // parse extra data for each atom
-                let extra_data = info.parse_extra_columns(&atom.extra)?;
-                // get `forces` from extra_data_dict
-                let forces = extra_data.get("forces").unwrap();
+                let atom_properties = info.parse_extra_columns(&atom.extra)?;
+                // get `forces` component for each atom
+                let forces = &atom_properties["forces"];
             }
         }
     

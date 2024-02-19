@@ -226,7 +226,9 @@ fn recognize_old_one_d_array<'i>(input: &mut Stream<'i>) -> PResult<Vec<String>>
     // separated by whitespace
     let comma = (",", opt(space1)).value(",");
     let sep = alt((space1, comma));
-    let mut list_values = separated(1.., recognize_sci_float, sep);
+    let boolean = recognize_boolean.map(|s| s.to_string());
+    let string = parse_string.map(|s| s.to_string());
+    let mut list_values = separated(2.., alt((recognize_sci_float, boolean, string)), sep);
     let values = delimited(opt(one_of(['[', '{'])), list_values, opt(one_of([']', '}']))).parse_next(input)?;
     Ok(values)
 }
@@ -248,9 +250,15 @@ fn test_parse_1d_array() -> PResult<()> {
     let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
     assert_eq!(x.len(), 9);
 
+    // bool type vector
     let input = "T T T";
     let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
     assert_eq!(x.len(), 3);
+
+    // not a vector
+    let input = "T";
+    let r = recognize_old_one_d_array.parse_peek(input);
+    assert!(r.is_err());
 
     Ok(())
 }
@@ -302,6 +310,10 @@ fn test_extxyz_value() -> PResult<()> {
     let x = reformat_extxyz_value(s);
     assert_eq!(x, "-12");
 
+    let s = "T T T";
+    let x = reformat_extxyz_value(s);
+    assert_eq!(x, "[true, true, true]");
+
     Ok(())
 }
 // 1e59b3a0 ends here
@@ -346,12 +358,13 @@ fn test_parse_extxyz_title() -> PResult<()> {
     assert_eq!(info.dict["b2"], false);
     assert_eq!(info.dict["array"][0], 1);
 
-    let mut s = r#""real quoted"="3.14" array="1.2 2 3" nested="[[1], [2], [3]]" other="1 2 T""#;
+    let mut s = r#""real quoted"="3.14" array="1.2 2 3" nested="[[1], [2], [3]]" special="1 2 T""#;
     let info = parse_extxyz_title(&mut s)?;
     assert_eq!(info.dict["real quoted"], 3.14);
     assert_eq!(info.dict["array"][0], 1.2);
     assert_eq!(info.dict["nested"][0][0], 1);
-    assert_eq!(info.dict["other"], "1 2 T");
+    assert_eq!(info.dict["special"][0], 1);
+    assert_eq!(info.dict["special"][2], true);
 
     let mut s = r#"Lattice="10.83 0.0 0.0 0.0 10.83 0.0 0.0 0.0 10.83" Properties=forces:R:3:energies:R:1 user-data="_JSON [1, 2, 3]" energy=0.634"#;
     let info = parse_extxyz_title(&mut s)?;
@@ -380,7 +393,7 @@ impl Info {
     }
 
     /// Return parsed per-atom properties
-    pub fn get_properties(&self) -> anyhow::Result<Vec<PropertyValue>> {
+    fn get_properties(&self) -> anyhow::Result<Vec<PropertyValue>> {
         let properties = if let Some(Value::String(properties)) = self.dict.get("Properties") {
             properties
         } else {
