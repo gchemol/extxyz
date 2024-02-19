@@ -217,6 +217,45 @@ fn test_key_value() -> PResult<()> {
 }
 // ce5ca27d ends here
 
+// [[file:../../extxyz.note::dd9bed2f][dd9bed2f]]
+fn recognize_old_one_d_array<'i>(input: &mut Stream<'i>) -> PResult<Vec<String>> {
+    use winnow::ascii::space1;
+    use winnow::token::one_of;
+
+    // separated by commas and optional whitespace, or
+    // separated by whitespace
+    let comma = (",", opt(space1)).value(",");
+    let sep = alt((space1, comma));
+    let mut list_values = separated(1.., recognize_sci_float, sep);
+    let values = delimited(opt(one_of(['[', '{'])), list_values, opt(one_of([']', '}']))).parse_next(input)?;
+    Ok(values)
+}
+
+#[test]
+fn test_parse_1d_array() -> PResult<()> {
+    let input = "5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44";
+    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
+    assert_eq!(x.len(), 9);
+
+    let input = "[5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44]";
+    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
+
+    let input = "{5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44}";
+    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
+    assert_eq!(x.len(), 9);
+
+    let input = "[5.44, 0.0,0.0,0.0,5.44,0.0,0.0,0.0,5.44]";
+    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
+    assert_eq!(x.len(), 9);
+
+    let input = "T T T";
+    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
+    assert_eq!(x.len(), 3);
+
+    Ok(())
+}
+// dd9bed2f ends here
+
 // [[file:../../extxyz.note::1e59b3a0][1e59b3a0]]
 fn reformat_old_style_array(input: Stream) -> PResult<String> {
     let (rest, ss) = recognize_old_one_d_array.parse_peek(input)?;
@@ -267,48 +306,18 @@ fn test_extxyz_value() -> PResult<()> {
 }
 // 1e59b3a0 ends here
 
-// [[file:../../extxyz.note::dd9bed2f][dd9bed2f]]
-fn recognize_old_one_d_array<'i>(input: &mut Stream<'i>) -> PResult<Vec<String>> {
-    use winnow::ascii::space1;
-    use winnow::token::one_of;
-
-    // separated by commas and optional whitespace, or
-    // separated by whitespace
-    let comma = (",", opt(space1)).value(",");
-    let sep = alt((space1, comma));
-    let mut list_values = separated(1.., recognize_sci_float, sep);
-    let values = delimited(opt(one_of(['[', '{'])), list_values, opt(one_of([']', '}']))).parse_next(input)?;
-    Ok(values)
-}
-
-#[test]
-fn test_parse_1d_array() -> PResult<()> {
-    let input = "5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44";
-    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
-    assert_eq!(x.len(), 9);
-
-    let input = "[5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44]";
-    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
-
-    let input = "{5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44}";
-    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
-
-    assert_eq!(x.len(), 9);
-    let input = "[5.44, 0.0,0.0,0.0,5.44,0.0,0.0,0.0,5.44]";
-    let (_, x) = recognize_old_one_d_array.parse_peek(input)?;
-    assert_eq!(x.len(), 9);
-    Ok(())
-}
-// dd9bed2f ends here
-
 // [[file:../../extxyz.note::68a854b3][68a854b3]]
 fn parse_extxyz_title<'s>(title: &mut Stream<'s>) -> PResult<Info> {
     let kv_pairs = parse_key_value_pairs.parse_next(title)?;
 
     let mut info = Info::default();
     for (k, v) in kv_pairs {
-        let v = reformat_extxyz_value(v);
+        let mut v = reformat_extxyz_value(v);
         let k = k.to_string();
+        // ASE style: user-data="_JSON [1, 2, 3]"
+        if v.starts_with("_JSON ") {
+            v = v[5..].to_string();
+        }
         // convert value in string to json typed `Value`
         if let Ok(v_parsed) = v.parse::<Value>() {
             info.dict.insert(k, v_parsed);
@@ -322,9 +331,11 @@ fn parse_extxyz_title<'s>(title: &mut Stream<'s>) -> PResult<Info> {
 
 #[test]
 fn test_parse_extxyz_title() -> PResult<()> {
-    let mut s = r#"Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3 Time=0.0"#;
+    let mut s = r#"Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3 Time=0.0 pbc="T T T""#;
     let info = parse_extxyz_title(&mut s)?;
     assert_eq!(info.dict["Time"], 0.0);
+    dbg!(&info.dict);
+    assert_eq!(info.dict["pbc"][0], true);
 
     let mut s = r#"s=string b1=True b2= F real=3.14 integer=-314 array="[1,2,3]""#;
     let info = parse_extxyz_title(&mut s)?;
@@ -341,6 +352,10 @@ fn test_parse_extxyz_title() -> PResult<()> {
     assert_eq!(info.dict["array"][0], 1.2);
     assert_eq!(info.dict["nested"][0][0], 1);
     assert_eq!(info.dict["other"], "1 2 T");
+
+    let mut s = r#"Lattice="10.83 0.0 0.0 0.0 10.83 0.0 0.0 0.0 10.83" Properties=forces:R:3:energies:R:1 user-data="_JSON [1, 2, 3]" energy=0.634"#;
+    let info = parse_extxyz_title(&mut s)?;
+    assert!(info.dict["user-data"][0].is_u64());
 
     Ok(())
 }
