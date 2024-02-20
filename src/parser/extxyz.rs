@@ -346,7 +346,6 @@ fn test_parse_extxyz_title() -> PResult<()> {
     let mut s = r#"Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3 Time=0.0 pbc="T T T""#;
     let info = parse_extxyz_title(&mut s)?;
     assert_eq!(info.dict["Time"], 0.0);
-    dbg!(&info.dict);
     assert_eq!(info.dict["pbc"][0], true);
 
     let mut s = r#"s=string b1=True b2= F real=3.14 integer=-314 array="[1,2,3]""#;
@@ -402,7 +401,7 @@ impl Info {
         let properties = if let Some(Value::String(properties)) = self.dict.get("Properties") {
             properties
         } else {
-            "Properties=species:S:1:pos:R:3"
+            "species:S:1:pos:R:3"
         };
         let property_values = parse_property_values.parse(properties).map_err(|e| {
             let error = e.to_string();
@@ -438,7 +437,6 @@ fn test_extxyz_info() -> anyhow::Result<()> {
     let info: Info = s.parse()?;
     assert_eq!(info.get("Time").unwrap(), 0.0);
     assert_eq!(info.get("Lattice").unwrap()[0], 5.44);
-    dbg!(info.get_properties());
 
     let extra = "       0.03244218       0.02902981      -0.00495554 F";
     let atom_properties = info.parse_extra_columns(extra)?;
