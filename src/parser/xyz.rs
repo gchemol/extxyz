@@ -25,7 +25,7 @@ fn parse_xyz_line<'s>(frame_text: &mut Stream<'s>) -> PResult<RawAtom<'s>> {
 
     // element symbol or number
     let sym_or_num = alt((alpha1, digit1));
-    let ele = cut_err(terminated(sym_or_num, space1))
+    let ele = cut_err(delimited(space0, sym_or_num, space1))
         .context(label("element symbol or number"))
         .parse_next(frame_text)?;
     let float = recognize_sci_float.try_map(|s| s.parse::<f64>());

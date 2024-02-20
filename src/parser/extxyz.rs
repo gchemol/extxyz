@@ -21,7 +21,7 @@ use serde_json::Value;
 /// Represents the data parsed from extxyz comment line.
 ///
 /// Example input: Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3 Time=0.0
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct Info {
     /// A heterogeneous map (dict) for parsed key-value pairs
     dict: serde_json::Map<String, Value>,
@@ -392,6 +392,11 @@ impl Info {
         self.dict.get(key)
     }
 
+    /// Removes and returns an value from `Info` having the given key.
+    pub fn pop(&mut self, key: &str) -> Option<Value> {
+        self.dict.remove(key)
+    }
+
     /// Return parsed per-atom properties
     fn get_properties(&self) -> anyhow::Result<Vec<PropertyValue>> {
         let properties = if let Some(Value::String(properties)) = self.dict.get("Properties") {
@@ -405,6 +410,16 @@ impl Info {
         })?;
 
         Ok(property_values)
+    }
+
+    /// Return reference to inner `Map`
+    pub fn raw_map(&self) -> &serde_json::Map<String, Value> {
+        &self.dict
+    }
+
+    /// Mut access to inner `Map`
+    pub fn raw_map_mut(&mut self) -> &mut serde_json::Map<String, Value> {
+        &mut self.dict
     }
 }
 

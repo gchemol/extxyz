@@ -1,8 +1,15 @@
 // [[file:../extxyz.note::c53397f5][c53397f5]]
-use extxyz::{read_xyz_frames, Info, RawAtoms};
+use extxyz::{read_xyz_frames, read_xyz_frames_direct, Info, RawAtoms};
 
 #[test]
 fn test_extxyz() -> anyhow::Result<()> {
+    let f = "tests/files/water.xyz";
+    let frames: Vec<_> = read_xyz_frames_direct(f)?.collect();
+    assert_eq!(frames.len(), 3);
+    for frame in frames {
+        let _atoms = RawAtoms::parse_from(&frame)?;
+    }
+
     let f = "tests/files/cu.xyz";
     let frames: Vec<_> = read_xyz_frames(f, 0..)?.collect();
     assert_eq!(frames.len(), 1);
@@ -22,7 +29,7 @@ fn test_extxyz() -> anyhow::Result<()> {
     for atom in atoms.atoms {
         // parse extra data for each atom
         let atom_properties = info.parse_extra_columns(&atom.extra)?;
-        // get `forces` from extra_data_dict
+        // get `forces` component for each atom
         let forces = &atom_properties["forces"];
         assert!(forces[0].is_f64());
         let energy = &atom_properties["energy"];
