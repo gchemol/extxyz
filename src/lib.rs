@@ -67,7 +67,7 @@ pub struct RawAtom<'s> {
     /// Element symbol or number
     pub element: &'s str,
     /// The Cartesian coordinates
-    pub positions: [f64; 3],
+    pub position: [f64; 3],
     /// Any rest input other than above
     pub extra: &'s str,
 }

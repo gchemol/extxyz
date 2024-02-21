@@ -34,7 +34,7 @@ fn parse_xyz_line<'s>(frame_text: &mut Stream<'s>) -> PResult<RawAtom<'s>> {
 
     let atom = RawAtom {
         element: ele,
-        positions: xyz.try_into().unwrap(),
+        position: xyz.try_into().unwrap(),
         extra,
     };
     Ok(atom)
