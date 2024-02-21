@@ -443,6 +443,12 @@ fn test_extxyz_info() -> anyhow::Result<()> {
     assert_eq!(atom_properties["forces"][0], 0.03244218);
     assert_eq!(atom_properties["freeze"], false);
 
+    let s = r#"Lattice="5.44 0.0 0.0 0.0 5.44 0.0 0.0 0.0 5.44" Properties=species:S:1:pos:R:3:forces:R:3:freeze:L:1 Time=0.0"#;
+    let info: Info = "Properties=species:S:1:pos:R:3:Z:I:1:masses:R:1".parse()?;
+    let extra = "1 1.00800000";
+    let atom_properties = info.parse_extra_columns(extra)?;
+    assert_eq!(atom_properties.len(), 2);
+
     Ok(())
 }
 // b4d166a0 ends here

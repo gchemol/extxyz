@@ -58,7 +58,10 @@ pub mod docs {
 // bf78776e ends here
 
 // [[file:../extxyz.note::bf0a7abd][bf0a7abd]]
-#[derive(Debug)]
+use serde::Deserialize;
+use serde::Serialize;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 /// Represents the parsed atom in raw xyz format
 pub struct RawAtom<'s> {
     /// Element symbol or number
@@ -69,7 +72,7 @@ pub struct RawAtom<'s> {
     pub extra: &'s str,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 /// Represents the parsed atoms in raw xyz format
 pub struct RawAtoms<'s> {
     /// The number of atoms
